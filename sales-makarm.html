@@ -615,7 +615,52 @@
   @media(max-width:768px){
     .manager-stats { grid-template-columns:1fr 1fr; }
     .manager-body { padding:16px; }
+
+    /* Floating logout/refresh buttons were overlapping header content AND the mobile bottom summary sheet */
+    .logout-btn-global { top:120px; left:16px; padding:7px 13px; font-size:12px; }
+    .refresh-btn-global { top:120px; left:auto; right:16px; padding:7px 13px; font-size:12px; }
+
+    /* Main header: logo + search + actions no longer fit in one row on mobile */
+    #mainHeader { flex-wrap:wrap; height:auto; min-height:64px; padding:10px 14px; gap:8px; }
+    .header-logo-img-wrap, .header-logo-img-wrap img { height:38px; }
+    .header-center { order:3; width:100%; }
+    .search-wrap { width:100%; }
+    .search-input, .search-input:focus { width:100%; }
+    .header-actions { gap:6px; }
+    .date-badge { padding:6px 10px; font-size:11px; }
+    .btn-icon { width:34px; height:34px; font-size:15px; }
+
+    /* Manager header: title/sub were cramped next to the logout button */
+    .manager-header { padding:16px 18px; flex-wrap:wrap; gap:8px; }
+    .manager-title { font-size:17px; }
+
+    /* Data table: was overflowing the screen width */
+    .manager-table-wrap { overflow-x:auto; }
+    .req-table { min-width:640px; }
+    .manager-table-header { padding:14px 16px; flex-wrap:wrap; gap:10px; }
+
+    /* Seller orders / manager reply rows: avoid squeezing on narrow screens */
+    .seller-order-head { flex-wrap:wrap; gap:8px; }
+    .thread-reply-row, .manager-reply-wrap { flex-wrap:wrap; }
+    .thread-reply-input, .manager-reply-input { min-width:100%; }
+
+    /* Modals: 44px/24px padding left almost no room on small phones */
+    .success-card { padding:26px 20px; width:94%; }
+    .order-detail-card { width:94%; max-height:90vh; }
+    .order-detail-head { padding:16px 18px; }
+    .order-detail-foot { padding:12px 16px; flex-wrap:wrap; }
+
+    /* Request/seller grids: 2 columns still cramped on narrow phones */
+    .seller-card { grid-template-columns:1fr; padding:18px; }
+    .request-grid { grid-template-columns:1fr 1fr; gap:10px; }
   }
+
+  @media(max-width:420px){
+    .request-grid { grid-template-columns:1fr; }
+    .manager-stats { grid-template-columns:1fr; }
+    .stat-num { font-size:28px; }
+  }
+
 
   /* ── SELLER ORDERS TAB ─────────────────────── */
   .app-tabs { display:flex; gap:0; border-bottom:2px solid rgba(201,169,110,0.2); position:sticky; top:0; background:var(--cream); z-index:5; }
@@ -680,6 +725,18 @@
     .main-panel{padding-bottom:calc(38vh + 20px);}
     .seller-card{grid-template-columns:1fr 1fr;}
     .request-grid{grid-template-columns:1fr 1fr;}
+    /* FAB and toasts were hidden behind/overlapping the fixed bottom summary sheet */
+    .fab{bottom:calc(38vh + 16px);right:16px;width:48px;height:48px;font-size:18px;}
+    .toast-container{bottom:calc(38vh + 16px);}
+  }
+  /* ══════════════════════════════════════════════════════
+     GLOBAL: NO MOTION AT ALL — disables every transition and
+     animation everywhere (including inline styles set by JS),
+     as requested. All state changes are now instant.
+  ══════════════════════════════════════════════════════ */
+  *, *::before, *::after {
+    animation: none !important;
+    transition: none !important;
   }
 </style>
 </head>
