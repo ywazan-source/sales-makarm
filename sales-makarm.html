@@ -955,6 +955,29 @@
   </div>
 </div>
 
+<!-- Firebase (Firestore) — used to sync orders live across devices -->
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
+<script>
+const firebaseConfig = {
+  apiKey: "AIzaSyDOcEIQR-Z7hJQeNu1e73ZbhBYwcvmN3Mk",
+  authDomain: "makarm-sales.firebaseapp.com",
+  projectId: "makarm-sales",
+  storageBucket: "makarm-sales.firebasestorage.app",
+  messagingSenderId: "1013827435867",
+  appId: "1:1013827435867:web:b7be886c85b151405e6e7e"
+};
+let db = null;
+let firebaseReady = false;
+try{
+  firebase.initializeApp(firebaseConfig);
+  db = firebase.firestore();
+  firebaseReady = true;
+}catch(e){
+  console.error('Firebase init failed, falling back to local-only storage', e);
+}
+</script>
+
 <script>
 // ══════════════════════════════════════════════════════
 // STATE
@@ -1645,7 +1668,7 @@ function sellerSendReply(orderIdx){
     text,
     time:`${now.getDate()}/${now.getMonth()+1}/${now.getFullYear()} ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`
   });
-  localStorage.setItem('mkrm_orders', JSON.stringify(orders));
+  persistOrderByIndex(orderIdx);
   input.value = '';
   renderSellerOrders();
   showToast('تم إرسال ردك للمدير','✓','toast-success');
@@ -1653,12 +1676,12 @@ function sellerSendReply(orderIdx){
 
 function markManagerMsgSeen(sellerCode){
   const orders = getOrders();
-  let changed = false;
-  orders.forEach(o=>{
+  orders.forEach((o,idx)=>{
     if(o.sellerCode!==sellerCode) return;
+    let changed = false;
     (o.thread||[]).forEach(m=>{ if(m.from==='manager'&&!m.seenBySeller){ m.seenBySeller=true; changed=true; } });
+    if(changed) persistOrderByIndex(idx);
   });
-  if(changed) localStorage.setItem('mkrm_orders', JSON.stringify(orders));
 }
 
 function updateOrdersBadge(){
@@ -1692,7 +1715,7 @@ function managerReply(orderIdx){
   };
   if(managerAttachedPDF){ msg.pdfData = managerAttachedPDF.dataUrl; }
   order.thread.push(msg);
-  localStorage.setItem('mkrm_orders', JSON.stringify(orders));
+  persistOrderByIndex(orderIdx);
   if(input) input.value='';
   managerAttachedPDF = null;
   // Refresh thread inside open modal
@@ -1865,19 +1888,79 @@ function managerLogout(){
   document.getElementById('globalRefreshBtn').classList.remove('visible');
 }
 
-// Orders storage
+// ══════════════════════════════════════════════════════
+// ORDERS STORAGE — synced live across devices via Firestore,
+// with localStorage kept as an offline fallback cache.
+// ══════════════════════════════════════════════════════
+let cachedOrders = [];
+try{ cachedOrders = JSON.parse(localStorage.getItem('mkrm_orders')||'[]'); }catch(e){ cachedOrders = []; }
+
+function persistLocalCache(){
+  try{ localStorage.setItem('mkrm_orders', JSON.stringify(cachedOrders)); }catch(e){}
+}
+
+function refreshVisibleViews(){
+  if(document.getElementById('managerPage') && document.getElementById('managerPage').classList.contains('show')){
+    renderManagerTable();
+  }
+  const ordersPanel = document.getElementById('panel-myorders');
+  if(ordersPanel && ordersPanel.classList.contains('show')){
+    renderSellerOrders();
+  }
+  updateOrdersBadge();
+}
+
+function startOrdersSync(){
+  if(!firebaseReady || !db) return;
+  db.collection('orders').orderBy('createdAt','asc').onSnapshot(snapshot=>{
+    cachedOrders = snapshot.docs.map(d=>({ ...d.data(), _docId:d.id }));
+    persistLocalCache();
+    refreshVisibleViews();
+  }, err=>{
+    console.error('Orders sync error, using local cache', err);
+  });
+}
+
 function saveOrder(orderData){
-  const orders = getOrders();
-  orders.push(orderData);
-  localStorage.setItem('mkrm_orders', JSON.stringify(orders));
+  orderData.createdAt = Date.now();
+  if(firebaseReady && db){
+    db.collection('orders').add(orderData).catch(err=>{
+      console.error('Failed to save order to Firestore, saved locally only', err);
+      cachedOrders.push(orderData);
+      persistLocalCache();
+    });
+  } else {
+    cachedOrders.push(orderData);
+    persistLocalCache();
+  }
 }
 function getOrders(){
-  try{ return JSON.parse(localStorage.getItem('mkrm_orders')||'[]'); }
-  catch(e){ return []; }
+  return cachedOrders;
+}
+// Push an in-place edit (made by index, matching existing call sites) of a
+// single order's thread/fields back to Firestore (or local cache fallback).
+function persistOrderByIndex(orderIdx){
+  const order = cachedOrders[orderIdx];
+  if(!order) return;
+  persistLocalCache();
+  if(firebaseReady && db && order._docId){
+    const { _docId, ...data } = order;
+    db.collection('orders').doc(_docId).set(data).catch(err=>{
+      console.error('Failed to sync order update to Firestore', err);
+    });
+  }
 }
 function clearAllOrders(){
   if(confirm('هل أنت متأكد من مسح جميع الطلبات؟')){
-    localStorage.removeItem('mkrm_orders');
+    if(firebaseReady && db){
+      db.collection('orders').get().then(snap=>{
+        const batch = db.batch();
+        snap.docs.forEach(d=>batch.delete(d.ref));
+        return batch.commit();
+      }).catch(err=>console.error('Failed to clear orders from Firestore', err));
+    }
+    cachedOrders = [];
+    persistLocalCache();
     renderManagerTable();
   }
 }
@@ -2181,6 +2264,8 @@ function globalRefresh() {
 // INIT
 // ══════════════════════════════════════════════════════
 window.addEventListener('DOMContentLoaded',()=>{
+
+  startOrdersSync();
 
   // Set login logo
   const loginLogoImg = document.getElementById('loginLogoImg');
