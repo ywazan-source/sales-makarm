@@ -392,6 +392,7 @@
     position:sticky;top:72px;height:calc(100vh - 72px);overflow-y:auto;display:flex;flex-direction:column;
   }
   .summary-header{padding:24px 22px 18px;border-bottom:1px solid rgba(201,169,110,0.15);position:relative;}
+  .summary-toggle { display:none; } /* mobile-only — see @media block */
   .summary-header::before{content:'';position:absolute;inset:0;background:linear-gradient(135deg,rgba(207,146,94,0.08),transparent);pointer-events:none;}
   .summary-logo{display:flex;align-items:center;gap:12px;margin-bottom:14px;}
   .summary-logo-img{height:36px;width:auto;object-fit:contain;opacity:0.95;background:transparent;mix-blend-mode:multiply;}
@@ -726,13 +727,21 @@
 
   @media(max-width:1024px){
     .app-layout{grid-template-columns:1fr;}
-    .summary-panel{position:fixed;bottom:0;right:0;left:0;height:auto;max-height:38vh;top:auto;}
-    .main-panel{padding-bottom:calc(38vh + 20px);}
+    .summary-panel{position:fixed;bottom:0;right:0;left:0;height:auto;max-height:64px;top:auto;overflow:hidden;z-index:500;}
+    .summary-header, .summary-body { display:none; }
+    .summary-toggle { display:flex; align-items:center; justify-content:space-between; padding:14px 20px; cursor:pointer; }
+    .summary-toggle-text { color:var(--gold-light,#c9a96e); font-size:13px; font-weight:700; }
+    .summary-toggle-chevron { color:var(--gold-light,#c9a96e); font-size:12px; }
+    .summary-footer { padding:0 16px 14px; }
+    .summary-panel.expanded { max-height:78vh; overflow-y:auto; }
+    .summary-panel.expanded .summary-header, .summary-panel.expanded .summary-body { display:block; }
+    .summary-panel.expanded .summary-toggle-chevron { transform:scaleY(-1); }
+    .main-panel{padding-bottom:100px;}
     .seller-card{grid-template-columns:1fr 1fr;}
     .request-grid{grid-template-columns:1fr 1fr;}
-    /* FAB and toasts were hidden behind/overlapping the fixed bottom summary sheet */
-    .fab{bottom:calc(38vh + 16px);right:16px;width:48px;height:48px;font-size:18px;}
-    .toast-container{bottom:calc(38vh + 16px);}
+    /* FAB and toasts were hidden behind/overlapping the fixed bottom summary bar */
+    .fab{bottom:100px;right:16px;width:48px;height:48px;font-size:18px;}
+    .toast-container{bottom:100px;}
   }
   /* ══════════════════════════════════════════════════════
      GLOBAL: NO MOTION AT ALL — disables every transition and
@@ -933,6 +942,10 @@
 
   <!-- SUMMARY PANEL -->
   <div class="summary-panel" id="summaryPanel">
+    <div class="summary-toggle" id="summaryToggle" onclick="toggleSummaryPanel()">
+      <span class="summary-toggle-text" id="summaryToggleText">لا توجد اختيارات بعد</span>
+      <span class="summary-toggle-chevron" id="summaryToggleChevron">▲</span>
+    </div>
     <div class="summary-header">
       <div class="summary-logo">
         <img class="summary-logo-img" id="summaryLogoImg" src="" alt="MAKARM">
@@ -1490,7 +1503,12 @@ function updateSummary(){
     return Object.values(s).some(v=>{ if(Array.isArray(v)) return v.length>0; return v&&v!==''&&v!==1; });
   })||appState.requestTypes.length>0;
 
-  if(!hasData){ body.style.display='none'; empty.style.display='flex'; return; }
+  if(!hasData){
+    body.style.display='none'; empty.style.display='flex';
+    const toggleTextEmpty = document.getElementById('summaryToggleText');
+    if(toggleTextEmpty) toggleTextEmpty.textContent = 'لا توجد اختيارات بعد';
+    return;
+  }
   body.style.display='block'; empty.style.display='none';
 
   let html='';
@@ -1530,6 +1548,19 @@ function updateSummary(){
   }
   if(notes) html+=`<div class="summary-section"><div class="summary-section-title">ملاحظات</div><div class="summary-item"><div class="summary-item-detail" style="color:rgba(255,255,255,0.55)">${notes}</div></div></div>`;
   body.innerHTML=html;
+
+  const toggleText = document.getElementById('summaryToggleText');
+  if(toggleText){
+    toggleText.textContent = catData.length>0
+      ? `📋 ${catData.length} صنف مختار — اضغط للتفاصيل`
+      : 'لا توجد اختيارات بعد';
+  }
+}
+
+// Mobile: expand/collapse the bottom order-summary sheet
+function toggleSummaryPanel(){
+  const panel = document.getElementById('summaryPanel');
+  if(panel) panel.classList.toggle('expanded');
 }
 
 // ══════════════════════════════════════════════════════
