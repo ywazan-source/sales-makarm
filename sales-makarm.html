@@ -786,7 +786,7 @@
 <div id="managerPage">
   <div class="manager-header">
     <div>
-      <div class="manager-title">🏢 لوحة مدير الفروع</div>
+      <div class="manager-title">🏢 لوحة الفروع</div>
       <div class="manager-sub">تقارير الطلبات الواردة</div>
     </div>
     <div class="mgr-header-actions">
@@ -927,7 +927,7 @@
 
     <div class="bottom-actions reveal">
       <button class="btn-secondary" onclick="resetForm()"><span>↺</span> إعادة تعيين</button>
-      <button class="btn-primary" onclick="submitOrder()"><span>📨</span><span>إرسال للمدير</span></button>
+      <button class="btn-primary" onclick="submitOrder()"><span>📨</span><span>إرسال الطلب</span></button>
     </div>
   </div><!-- end panel-new -->
 
@@ -962,7 +962,7 @@
       <div id="summaryContent" style="display:none"></div>
     </div>
     <div class="summary-footer">
-      <button class="export-btn" onclick="submitOrder()"><span>📨</span><span>إرسال للمدير</span></button>
+      <button class="export-btn" onclick="submitOrder()"><span>📨</span><span>إرسال الطلب</span></button>
     </div>
   </div>
 </div>
@@ -972,7 +972,7 @@
 <div class="success-overlay" id="successOverlay">
   <div class="success-card">
     <div class="success-icon">✓</div>
-    <div class="success-title">تم إرسال الطلب للمدير!</div>
+    <div class="success-title">تم إرسال الطلب بنجاح!</div>
     <div class="success-sub" id="successReqNum">—</div>
     <button class="success-close" onclick="closeSuccess()">إغلاق</button>
   </div>
@@ -1663,7 +1663,7 @@ function renderSellerOrders(){
         </div>
         <div class="seller-order-status">
           <div class="status-dot${hasReply?' has-reply':''}"></div>
-          <span class="status-label${hasReply?' has-reply':''}">${hasReply?'رد من المدير':'بانتظار الرد'}</span>
+          <span class="status-label${hasReply?' has-reply':''}">${hasReply?'يوجد رد جديد':'بانتظار الرد'}</span>
         </div>
       </div>
       ${cats ? `<div class="seller-order-products">${cats}</div>`:''}
@@ -1671,7 +1671,7 @@ function renderSellerOrders(){
         <div class="thread-title">المحادثة</div>
         ${thread}
         <div class="thread-reply-row">
-          <textarea class="thread-reply-input" id="seller-reply-${i}" placeholder="ردّ على المدير..."></textarea>
+          <textarea class="thread-reply-input" id="seller-reply-${i}" placeholder="اكتب ردك هنا..."></textarea>
           <button class="thread-reply-btn" onclick="sellerSendReply(${i})">إرسال</button>
         </div>
       </div>
@@ -1686,7 +1686,7 @@ function renderThreadBubbles(thread, viewer, orderIdx){
   return thread.map(msg=>{
     const isManager = msg.from==='manager';
     const side = isManager ? 'from-manager' : 'from-seller';
-    const label = isManager ? '👔 المدير' : '👤 البائع';
+    const label = isManager ? '🏢 الإدارة' : '👤 البائع';
     const pdfLink = msg.pdfData ? `<div style="margin-top:6px;"><a href="${msg.pdfData}" download="MAKARM-reply.pdf" style="display:inline-flex;align-items:center;gap:5px;background:rgba(255,255,255,0.2);border-radius:6px;padding:4px 10px;font-size:11px;color:inherit;text-decoration:none;">📄 تحميل الملف المرفق</a></div>` : '';
     return `<div class="thread-msg ${side}">
       <div class="thread-bubble">${msg.text||''}${pdfLink}</div>
@@ -1712,7 +1712,7 @@ function sellerSendReply(orderIdx){
   persistOrderByIndex(orderIdx);
   input.value = '';
   renderSellerOrders();
-  showToast('تم إرسال ردك للمدير','✓','toast-success');
+  showToast('تم إرسال ردك بنجاح','✓','toast-success');
 }
 
 function markManagerMsgSeen(sellerCode){
@@ -1847,7 +1847,7 @@ function submitOrder(){
   // Show success
   document.getElementById('successReqNum').textContent = `رقم الطلب: ${appState.reqNumber}`;
   document.getElementById('successOverlay').classList.add('show');
-  showToast('تم إرسال الطلب للمدير بنجاح ✓','✓','toast-success');
+  showToast('تم إرسال الطلب بنجاح ✓','✓','toast-success');
 }
 
 function formatKey(k){
@@ -2129,7 +2129,7 @@ function renderManagerThread(thread){
   return thread.map(msg=>{
     const isManager = msg.from==='manager';
     const side = isManager ? 'from-manager' : 'from-seller';
-    const label = isManager ? '👔 المدير' : '👤 البائع';
+    const label = isManager ? '🏢 الإدارة' : '👤 البائع';
     const pdfLink = msg.pdfData ? `<div style="margin-top:6px;"><a href="${msg.pdfData}" download="MAKARM-reply.pdf" style="display:inline-flex;align-items:center;gap:5px;background:rgba(255,255,255,0.2);border-radius:6px;padding:4px 10px;font-size:11px;color:inherit;text-decoration:none;">📄 تحميل الملف المرفق</a></div>` : '';
     return `<div class="thread-msg ${side}">
       <div class="thread-bubble">${msg.text||''}${pdfLink}</div>
@@ -2224,7 +2224,7 @@ function exportManagerPDF(){
   doc.setFillColor(...pCream); doc.rect(0,0,pw,ph,'F');
   doc.setFillColor(...pRed); doc.rect(0,0,pw,22,'F');
   doc.setFont('helvetica','bold'); doc.setFontSize(10); doc.setTextColor(...pGold);
-  doc.text('MAKARM — تقرير مدير الفروع', pw/2, 14, {align:'center'});
+  doc.text('MAKARM — تقرير الفروع', pw/2, 14, {align:'center'});
   const now=new Date(); const dateStr=`${now.getDate()}/${now.getMonth()+1}/${now.getFullYear()}`;
   doc.setFontSize(8); doc.setTextColor(...pWhite);
   doc.text(`تاريخ التصدير: ${dateStr}`, pw-10, 14, {align:'right'});
