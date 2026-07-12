@@ -537,6 +537,8 @@
     backdrop-filter:blur(10px);
   }
   .manager-logout:hover { background:rgba(255,255,255,0.25); transform:translateY(-1px); }
+  .mgr-header-actions { display:flex; align-items:center; gap:8px; }
+  .mobile-header-btn { display:none; } /* shown only on mobile — see @media block */
   .manager-body { padding:28px 32px; max-width:1200px; margin:0 auto; }
   .manager-stats { display:grid; grid-template-columns:repeat(4,1fr); gap:18px; margin-bottom:28px; }
   .stat-card {
@@ -616,9 +618,12 @@
     .manager-stats { grid-template-columns:1fr 1fr; }
     .manager-body { padding:16px; }
 
-    /* Floating logout/refresh buttons were overlapping header content AND the mobile bottom summary sheet */
-    .logout-btn-global { top:120px; left:16px; padding:7px 13px; font-size:12px; }
-    .refresh-btn-global { top:120px; left:auto; right:16px; padding:7px 13px; font-size:12px; }
+    /* The floating logout/refresh buttons always collided with page content
+       right below the header (too little vertical room on any phone).
+       Replaced with buttons built into the sticky header itself instead. */
+    .logout-btn-global, .refresh-btn-global,
+    .logout-btn-global.visible, .refresh-btn-global.visible { display:none; }
+    .mobile-header-btn { display:flex; width:34px; height:34px; padding:0; align-items:center; justify-content:center; font-size:15px; }
 
     /* Main header: logo + search + actions no longer fit in one row on mobile */
     #mainHeader { flex-wrap:wrap; height:auto; min-height:64px; padding:10px 14px; gap:8px; }
@@ -775,7 +780,10 @@
       <div class="manager-title">🏢 لوحة مدير الفروع</div>
       <div class="manager-sub">تقارير الطلبات الواردة</div>
     </div>
-    <button class="manager-logout" onclick="managerLogout()">خروج</button>
+    <div class="mgr-header-actions">
+      <button class="manager-logout mobile-header-btn" onclick="globalRefresh()" title="تحديث">↻</button>
+      <button class="manager-logout" onclick="managerLogout()">خروج</button>
+    </div>
   </div>
   <div class="manager-body">
     <div class="manager-stats" id="managerStats"></div>
@@ -835,6 +843,8 @@
   <div class="header-actions">
     <div class="date-badge" id="headerDate"></div>
     <button class="btn-icon" onclick="resetForm()" title="إعادة تعيين">↺</button>
+    <button class="btn-icon mobile-header-btn" onclick="globalRefresh()" title="تحديث">↻</button>
+    <button class="btn-icon mobile-header-btn" onclick="globalLogout()" title="خروج">⏻</button>
   </div>
 </header>
 <div class="progress-bar-wrap"><div class="progress-bar-fill" id="progressBar"></div></div>
@@ -1880,6 +1890,7 @@ function startApp(sellerCode){
 
 function managerLogout(){
   sessionStorage.removeItem('mkrm_user');
+  document.body.classList.remove('manager-mode');
   document.getElementById('managerPage').classList.remove('show');
   document.getElementById('loginPage').classList.remove('hidden');
   document.getElementById('loginCodeInput').value='';
@@ -1967,6 +1978,7 @@ function clearAllOrders(){
 
 function showManagerPage(){
   showGlobalLogout();
+  document.body.classList.add('manager-mode');
   document.getElementById('managerPage').classList.add('show');
   renderManagerTable();
 }
@@ -2219,6 +2231,7 @@ function exportManagerPDF(){
 // ══════════════════════════════════════════════════════
 function globalLogout() {
   sessionStorage.removeItem('mkrm_user');
+  document.body.classList.remove('manager-mode');
   // hide everything, show login
   document.getElementById('mainHeader').style.display = 'none';
   document.querySelector('.progress-bar-wrap').style.display = 'none';
