@@ -559,7 +559,16 @@
     background:linear-gradient(90deg,var(--primary),var(--secondary));
   }
   .stat-card:hover { transform:translateY(-6px) scale(1.02); box-shadow:0 16px 44px rgba(111,34,38,0.15); }
-  .stat-num { font-size:36px; font-weight:900; color:var(--primary); animation: countUp 0.6s ease both; }
+  .stat-num { font-size:36px; font-weight:900; color:var(--primary); animation: countUp 0.6s ease both; position:relative; display:inline-flex; align-items:center; gap:8px; }
+  .new-orders-badge {
+    display:inline-block; background:#22c55e; color:white; font-size:12px; font-weight:700;
+    padding:3px 10px; border-radius:50px; vertical-align:middle;
+  }
+  .new-order-dot {
+    display:inline-block; width:9px; height:9px; border-radius:50%;
+    background:#22c55e; margin-left:6px; box-shadow:0 0 0 3px rgba(34,197,94,0.2);
+  }
+  tr.unseen-row { background:rgba(34,197,94,0.05); }
   .stat-label { font-size:12px; color:var(--text-light); font-weight:600; margin-top:4px; }
   .manager-table-wrap {
     background:white; border-radius:20px; border:1px solid rgba(201,169,110,0.2);
@@ -667,6 +676,13 @@
     .stat-num { font-size:28px; }
   }
 
+  /* Tablets only (770px–1024px): keep the 2-column layout here, scoped so
+     it can never conflict with the phone rules above */
+  @media(min-width:770px) and (max-width:1024px){
+    .seller-card { grid-template-columns:1fr 1fr; }
+    .request-grid { grid-template-columns:1fr 1fr; }
+  }
+
 
   /* ── SELLER ORDERS TAB ─────────────────────── */
   .app-tabs { display:flex; gap:0; border-bottom:2px solid rgba(201,169,110,0.2); position:sticky; top:0; background:var(--cream); z-index:5; }
@@ -737,8 +753,10 @@
     .summary-panel.expanded .summary-header, .summary-panel.expanded .summary-body { display:block; }
     .summary-panel.expanded .summary-toggle-chevron { transform:scaleY(-1); }
     .main-panel{padding-bottom:100px;}
-    .seller-card{grid-template-columns:1fr 1fr;}
-    .request-grid{grid-template-columns:1fr 1fr;}
+    /* seller-card / request-grid column counts are handled per-breakpoint
+       below (tablet gets 2 columns, phones get 1) — see the two rules
+       further down, kept out of this block to avoid conflicting with the
+       narrower ≤768px rule that must win on phones */
     /* FAB and toasts were hidden behind/overlapping the fixed bottom summary bar */
     .fab{bottom:100px;right:16px;width:48px;height:48px;font-size:18px;}
     .toast-container{bottom:100px;}
@@ -1937,6 +1955,17 @@ function managerLogout(){
 let cachedOrders = [];
 try{ cachedOrders = JSON.parse(localStorage.getItem('mkrm_orders')||'[]'); }catch(e){ cachedOrders = []; }
 
+// Track which orders the manager has already opened, so unseen ones can be
+// marked with a green "new" indicator until opened individually.
+let seenOrderIds = new Set();
+try{ seenOrderIds = new Set(JSON.parse(localStorage.getItem('mkrm_seen_orders')||'[]')); }catch(e){ seenOrderIds = new Set(); }
+function markOrderSeen(docId){
+  if(!docId || seenOrderIds.has(docId)) return;
+  seenOrderIds.add(docId);
+  try{ localStorage.setItem('mkrm_seen_orders', JSON.stringify([...seenOrderIds])); }catch(e){}
+}
+let knownOrderIds = null; // null until first snapshot loads
+
 function persistLocalCache(){
   try{ localStorage.setItem('mkrm_orders', JSON.stringify(cachedOrders)); }catch(e){}
 }
@@ -1957,6 +1986,18 @@ function startOrdersSync(){
   db.collection('orders').orderBy('createdAt','asc').onSnapshot(snapshot=>{
     cachedOrders = snapshot.docs.map(d=>({ ...d.data(), _docId:d.id }));
     persistLocalCache();
+
+    // Detect genuinely new orders that arrived after the very first load,
+    // and notify the manager instantly with a toast.
+    const currentIds = new Set(cachedOrders.map(o=>o._docId));
+    if(knownOrderIds !== null){
+      const newOnes = cachedOrders.filter(o=>!knownOrderIds.has(o._docId));
+      if(newOnes.length>0 && document.body.classList.contains('manager-mode')){
+        showToast(newOnes.length>1 ? `🔔 وصل ${newOnes.length} طلبات جديدة` : '🔔 وصل طلب جديد', '📦', 'toast-info');
+      }
+    }
+    knownOrderIds = currentIds;
+
     refreshVisibleViews();
   }, err=>{
     console.error('Orders sync error, using local cache', err);
@@ -2022,8 +2063,10 @@ function renderManagerTable(){
   const branches = [...new Set(orders.map(o=>o.branchCode))];
   const today = new Date().toLocaleDateString('ar-SA');
   const todayOrders = orders.filter(o=>o.date && o.date.includes(new Date().toLocaleDateString('en-GB')));
+  const unseenCount = orders.filter(o=>o._docId && !seenOrderIds.has(o._docId)).length;
+  const newBadge = unseenCount>0 ? `<span class="new-orders-badge">${unseenCount} جديد</span>` : '';
   statsEl.innerHTML=`
-    <div class="stat-card"><div class="stat-num">${orders.length}</div><div class="stat-label">إجمالي الطلبات</div></div>
+    <div class="stat-card"><div class="stat-num">${orders.length}${newBadge}</div><div class="stat-label">إجمالي الطلبات</div></div>
     <div class="stat-card"><div class="stat-num">${sellers.length}</div><div class="stat-label">عدد البائعين</div></div>
     <div class="stat-card"><div class="stat-num">${branches.length}</div><div class="stat-label">عدد الفروع</div></div>
     <div class="stat-card"><div class="stat-num">${todayOrders.length}</div><div class="stat-label">طلبات اليوم</div></div>
@@ -2042,8 +2085,10 @@ function renderManagerTable(){
     const idx = orders.length - 1 - i;
     const hasNewReply = o.thread && o.thread.some(m=>m.from==='seller');
     const replyIndicator = hasNewReply ? `<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#f59e0b;margin-left:4px;" title="رد من البائع"></span>` : '';
-    return `<tr>
-      <td><span class="req-badge">${o.reqNumber||'—'}</span></td>
+    const isUnseen = o._docId && !seenOrderIds.has(o._docId);
+    const newDot = isUnseen ? `<span class="new-order-dot" title="طلب جديد لم يُفتح بعد"></span>` : '';
+    return `<tr${isUnseen?' class="unseen-row"':''}>
+      <td>${newDot}<span class="req-badge">${o.reqNumber||'—'}</span></td>
       <td><strong>${o.sellerCode||'—'}</strong></td>
       <td>${o.branchCode||'—'}</td>
       <td style="white-space:nowrap">${o.date||'—'}${timeStr}</td>
@@ -2066,6 +2111,8 @@ function showOrderDetail(idx){
   const orders = getOrders();
   const o = orders[idx];
   if(!o) return;
+  markOrderSeen(o._docId);
+  renderManagerTable();
   document.getElementById('detailReqNum').textContent = o.reqNumber||'—';
   document.getElementById('detailMeta').textContent = `${o.sellerCode||''} • فرع ${o.branchCode||''} • ${o.date||''} ${o.time?'- '+o.time:''}`;
 
